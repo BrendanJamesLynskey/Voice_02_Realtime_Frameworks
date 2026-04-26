@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice 02 — Real-Time Frameworks — Pipecat, LiveKit, OpenAI Realtime API</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-card: #0d1117;
+            --bg-code: #161b22;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #76B900;
+            --accent-dim: #76B90044;
+            --accent-glow: #76B90033;
+            --border: #21262d;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-body: 'Inter', sans-serif;
+            --max-width: 900px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .hero > * { position: relative; z-index: 1; }
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+        .hero h1 .accent { color: var(--accent); }
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin-bottom: 2rem;
+        }
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .pipeline-arrow { color: var(--accent); font-size: 0.9rem; font-weight: 700; }
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .slide p { margin-bottom: 1rem; color: var(--text-secondary); }
+        .slide p strong { color: var(--text-primary); }
+        .slide ul, .slide ol { margin-bottom: 1rem; padding-left: 1.5rem; color: var(--text-secondary); }
+        .slide li { margin-bottom: 0.4rem; }
+        .slide li strong { color: var(--text-primary); }
+        .slide code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            padding: 0.05rem 0.35rem;
+            border-radius: 3px;
+            color: #c9d1d9;
+        }
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .code-block pre { margin: 0; padding: 1rem; overflow-x: auto; }
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        .kw { color: #ff7b72; }
+        .fn { color: #d2a8ff; }
+        .str { color: #a5d6ff; }
+        .cm { color: #8b949e; font-style: italic; }
+        .num { color: #79c0ff; }
+        .type { color: #ffa657; }
+        .dir { color: #ff7b72; }
+        .mac { color: #ffa657; }
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: rgba(13, 17, 23, 0.5); }
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .diagram-box.accent { border-color: var(--accent); color: var(--accent); background: rgba(118, 185, 0, 0.08); }
+        .diagram-box.dim { color: var(--text-secondary); border-color: var(--border); }
+        .diagram-arrow { color: var(--accent); font-size: 1.3rem; font-weight: 700; }
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-vertical .diagram-arrow { font-size: 1.1rem; }
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .hierarchy-level { display: flex; align-items: center; gap: 0.75rem; }
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+        .hierarchy-items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .hierarchy-item.accent { border-color: var(--accent); color: var(--accent); background: rgba(118, 185, 0, 0.08); }
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .diagram-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .diagram-panel.accent-border { border-left: 3px solid var(--accent); }
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        .diagram-panel p, .diagram-panel ul { font-size: 0.85rem; }
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .callout p { margin-bottom: 0; }
+        .callout p + p { margin-top: 0.5rem; }
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+        .contents-list { list-style: none; padding-left: 0; counter-reset: contents; }
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .contents-list li:last-child { border-bottom: none; }
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+        .contents-list a { color: var(--text-primary); text-decoration: none; transition: color 0.2s; }
+        .contents-list a:hover { color: var(--accent); }
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas, .canvas-wrap svg { display: block; margin: 0 auto; max-width: 100%; }
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #ffa657; color: #ffa657; background: rgba(255,166,87,0.08); }
+        .badge.bad   { border-color: #ff7b72; color: #ff7b72; background: rgba(255,123,114,0.08); }
+        @media (max-width: 640px) {
+            .slide { padding: 3rem 1rem; min-height: auto; }
+            .slide-number { font-size: 3rem; top: 1.5rem; right: 1rem; }
+            .slide h2 { font-size: 1.5rem; }
+            .diagram-grid.cols-2, .diagram-grid.cols-3 { grid-template-columns: 1fr; }
+            .pipeline { gap: 0.15rem; }
+            .pipeline-step { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+            .hero h1 { font-size: 1.8rem; }
+            table { font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body>
+<header class="hero">
+    <div class="series-label">Voice &amp; Real-Time Agents Series &mdash; Presentation 02</div>
+    <h1>Real-Time <span class="accent">Frameworks</span> &mdash; Pipecat, LiveKit &amp; OpenAI Realtime</h1>
+    <p class="subtitle">Pipecat pipeline model, LiveKit Agents over WebRTC, OpenAI Realtime API speech-to-speech, gpt-4o native audio, Gemini Live, and Twilio telephony bridges &mdash; with concrete code and latency implications.</p>
+
+    <div class="tags">
+        <span class="tag">Pipecat</span>
+        <span class="tag">LiveKit</span>
+        <span class="tag">OpenAI Realtime</span>
+        <span class="tag">gpt-4o audio</span>
+        <span class="tag">Gemini Live</span>
+        <span class="tag">Twilio</span>
+        <span class="tag">WebRTC</span>
+    </div>
+
+    <div class="pipeline">
+        <span class="pipeline-step">Transport</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">ASR Processor</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">LLM Processor</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">TTS Processor</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Output Transport</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We&rsquo;ll Cover</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">Why a Real-Time Framework</a></li>
+        <li><a href="#slide-02">Pipecat Architecture &mdash; Pipeline, Processors, Services</a></li>
+        <li><a href="#slide-03">LiveKit Agents &mdash; Built on WebRTC</a></li>
+        <li><a href="#slide-04">OpenAI Realtime API &mdash; Speech-to-Speech Architecture</a></li>
+        <li><a href="#slide-05">gpt-4o Realtime &mdash; Single Model, No STT/TTS Hop</a></li>
+        <li><a href="#slide-06">Gemini Live, Claude Voice</a></li>
+        <li><a href="#slide-07">Telephony Bridges (Twilio, SIP)</a></li>
+        <li><a href="#slide-08">Picking a Stack</a></li>
+        <li><a href="#slide-09">What to Take Away</a></li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>Why a Real-Time Framework</h2>
+    <p>A voice bot is not a request&ndash;response service. It is a <strong>stateful, bidirectional audio stream</strong> that must handle overlapping microphone input, partial ASR results, LLM token streams, TTS audio chunks, user interruptions, and telephony-level protocol requirements &mdash; all simultaneously, all with sub-second deadlines.</p>
+
+    <p>Wiring this by hand with <code>asyncio</code> queues produces spaghetti that breaks when you swap a TTS provider or add a second language. A real-time framework gives you:</p>
+
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>What a framework provides</h4>
+            <ul>
+                <li>Transport abstraction (WebRTC, WebSocket, Twilio, PSTN)</li>
+                <li>Pipeline / processor model with typed frame passing</li>
+                <li>Pluggable ASR / LLM / TTS service adapters</li>
+                <li>VAD, turn-taking, and interruption handling</li>
+                <li>Audio mixing, resampling, and jitter-buffer management</li>
+                <li>Observability hooks (metrics, traces, conversation logging)</li>
+            </ul>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>What you still own</h4>
+            <ul>
+                <li>Business logic &mdash; system prompt, tool definitions, guardrails</li>
+                <li>State machine &mdash; conversation context, session data</li>
+                <li>Provider selection &mdash; which ASR / LLM / TTS to use</li>
+                <li>Deployment &mdash; container, scaling, PSTN number provisioning</li>
+                <li>Evaluation &mdash; call recording, transcript analysis, WER/MOS audit</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">The two viable open-source options</div>
+        <p><strong>Pipecat</strong> (Daily, v0.0.49 as of Q1 2026) is a Python pipeline framework that works with any transport and any service. <strong>LiveKit Agents</strong> (LiveKit, v0.x) is tightly coupled to LiveKit&rsquo;s WebRTC infrastructure but ships built-in telephony, SIP trunking, and a managed cloud. Both are MIT-licensed.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>Pipecat Architecture &mdash; Pipeline, Processors, Services</h2>
+    <p>Pipecat models a voice bot as a directed graph of <strong>processors</strong> connected by asyncio queues, running inside a <strong>pipeline</strong>. Each processor consumes typed <em>frames</em> from its input queue and emits frames to its output queue. The framework handles scheduling; processors are single-task coroutines.</p>
+
+    <h3>Frame types (pipecat.frames.frames)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Frame class</th><th>Direction</th><th>Payload</th></tr></thead>
+            <tbody>
+                <tr><td><code>AudioRawFrame</code></td><td>In &amp; out</td><td>raw PCM bytes, sample_rate, num_channels</td></tr>
+                <tr><td><code>TranscriptionFrame</code></td><td>ASR &rarr; LLM</td><td>text, user_id, timestamp, is_final bool</td></tr>
+                <tr><td><code>LLMMessagesFrame</code></td><td>control</td><td>OpenAI-style messages list for context injection</td></tr>
+                <tr><td><code>TextFrame</code></td><td>LLM &rarr; TTS</td><td>raw text string (one token or one sentence)</td></tr>
+                <tr><td><code>TTSStartedFrame</code> / <code>TTSStoppedFrame</code></td><td>TTS &rarr; output</td><td>marker for playout lifecycle; used by VAD to suppress echo</td></tr>
+                <tr><td><code>UserStartedSpeakingFrame</code></td><td>VAD &rarr; pipeline</td><td>triggers interruption logic in LLM processor</td></tr>
+                <tr><td><code>FunctionCallResultFrame</code></td><td>tool layer</td><td>result dict to inject back into LLM context</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Minimal bot pipeline</h3>
+    <div class="code-block">
+        <div class="code-header">python — pipecat 0.0.49 minimal voice bot</div>
+<pre><code><span class="kw">from</span> pipecat.pipeline.pipeline <span class="kw">import</span> <span class="type">Pipeline</span>
+<span class="kw">from</span> pipecat.pipeline.runner <span class="kw">import</span> <span class="type">PipelineRunner</span>
+<span class="kw">from</span> pipecat.pipeline.task <span class="kw">import</span> <span class="type">PipelineTask</span>
+<span class="kw">from</span> pipecat.transports.services.daily <span class="kw">import</span> <span class="type">DailyTransport</span>, <span class="type">DailyParams</span>
+<span class="kw">from</span> pipecat.services.deepgram <span class="kw">import</span> <span class="type">DeepgramSTTService</span>
+<span class="kw">from</span> pipecat.services.openai <span class="kw">import</span> <span class="type">OpenAILLMService</span>
+<span class="kw">from</span> pipecat.services.cartesia <span class="kw">import</span> <span class="type">CartesiaTTSService</span>
+<span class="kw">from</span> pipecat.processors.aggregators.openai_llm_context <span class="kw">import</span> <span class="type">OpenAILLMContext</span>
+<span class="kw">from</span> pipecat.vad.silero <span class="kw">import</span> <span class="type">SileroVADAnalyzer</span>
+
+transport = <span class="type">DailyTransport</span>(room_url, token,
+    <span class="str">"MyBot"</span>, <span class="type">DailyParams</span>(audio_in_enabled=<span class="kw">True</span>,
+                               vad_analyzer=<span class="type">SileroVADAnalyzer</span>()))
+
+stt = <span class="type">DeepgramSTTService</span>(api_key=<span class="type">DG_KEY</span>, model=<span class="str">"nova-3"</span>)
+llm = <span class="type">OpenAILLMService</span>(api_key=<span class="type">OAI_KEY</span>, model=<span class="str">"gpt-4o-mini"</span>)
+tts = <span class="type">CartesiaTTSService</span>(api_key=<span class="type">CA_KEY</span>, voice_id=<span class="type">VOICE_ID</span>)
+ctx = <span class="type">OpenAILLMContext</span>([{<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"You are a helpful assistant."</span>}])
+
+pipeline = <span class="type">Pipeline</span>([
+    transport.<span class="fn">input</span>(),   <span class="cm"># AudioRawFrame from WebRTC</span>
+    stt,                   <span class="cm"># &rarr; TranscriptionFrame</span>
+    ctx.<span class="fn">create_processor</span>(), <span class="cm"># builds messages list</span>
+    llm,                   <span class="cm"># &rarr; TextFrame (streaming tokens)</span>
+    tts,                   <span class="cm"># &rarr; AudioRawFrame</span>
+    transport.<span class="fn">output</span>(),  <span class="cm"># sends PCM to WebRTC peer</span>
+])
+
+runner = <span class="type">PipelineRunner</span>()
+task   = <span class="type">PipelineTask</span>(pipeline)
+<span class="kw">await</span> runner.<span class="fn">run</span>(task)</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Processor isolation</div>
+        <p>Each processor runs as an independent <code>asyncio.Task</code>. Swapping Deepgram for AssemblyAI means replacing one constructor call; the rest of the pipeline is unaffected. Pipecat&rsquo;s design goal is that every service adapter is a <em>10-line subclass</em> of <code>AsyncProcessor</code> &mdash; a constraint that has held well across the current 60+ built-in adapters.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>LiveKit Agents &mdash; Built on WebRTC</h2>
+    <p><strong>LiveKit Agents</strong> is an agent SDK that runs <em>inside</em> a LiveKit room. A LiveKit room is a WebRTC conference with a server-side signalling infrastructure (SFU). Your agent process joins as a participant, subscribes to audio tracks, and publishes audio back. The transport layer is DTLS-SRTP, giving you NAT traversal, jitter buffers, and packet-loss concealment for free.</p>
+
+    <h3>Agent lifecycle</h3>
+    <div class="diagram-vertical">
+        <div class="diagram-box accent">WorkerOptions: entrypoint=my_entrypoint, auto_subscribe=AutoSubscribe.AUDIO_ONLY</div>
+        <span class="diagram-arrow">&darr;</span>
+        <div class="diagram-box">Worker registers with LiveKit server &rarr; waits for room assignment</div>
+        <span class="diagram-arrow">&darr;</span>
+        <div class="diagram-box">Job dispatched &rarr; entrypoint coroutine called with AgentContext</div>
+        <span class="diagram-arrow">&darr;</span>
+        <div class="diagram-box">VoicePipelineAgent.start(ctx.room) &rarr; pipeline starts</div>
+        <span class="diagram-arrow">&darr;</span>
+        <div class="diagram-box accent">Agent speaks; user speaks; VAD / turn-taking loop runs until room empty</div>
+    </div>
+
+    <div class="code-block">
+        <div class="code-header">python — livekit-agents 0.x VoicePipelineAgent</div>
+<pre><code><span class="kw">from</span> livekit <span class="kw">import</span> agents, rtc
+<span class="kw">from</span> livekit.agents <span class="kw">import</span> <span class="type">AutoSubscribe</span>, <span class="type">JobContext</span>, <span class="type">WorkerOptions</span>, cli
+<span class="kw">from</span> livekit.agents.voice_assistant <span class="kw">import</span> <span class="type">VoicePipelineAgent</span>
+<span class="kw">from</span> livekit.plugins <span class="kw">import</span> deepgram, openai, cartesia, silero
+
+<span class="kw">async def</span> <span class="fn">entrypoint</span>(ctx: <span class="type">JobContext</span>):
+    <span class="kw">await</span> ctx.<span class="fn">connect</span>(auto_subscribe=<span class="type">AutoSubscribe</span>.AUDIO_ONLY)
+
+    agent = <span class="type">VoicePipelineAgent</span>(
+        vad=silero.<span class="type">VAD</span>.<span class="fn">load</span>(),
+        stt=deepgram.<span class="type">STT</span>(model=<span class="str">"nova-3"</span>),
+        llm=openai.<span class="type">LLM</span>(model=<span class="str">"gpt-4o-mini"</span>),
+        tts=cartesia.<span class="type">TTS</span>(voice=<span class="str">"a0e99841-438c-4a64-b679-ae501e7d6091"</span>),
+        chat_ctx=agents.<span class="type">ChatContext</span>().<span class="fn">append</span>(
+            role=<span class="str">"system"</span>,
+            text=<span class="str">"You are a helpful assistant."</span>,
+        ),
+    )
+    agent.<span class="fn">start</span>(ctx.room)
+    <span class="kw">await</span> agent.<span class="fn">say</span>(<span class="str">"Hello! How can I help you today?"</span>,
+                     allow_interruptions=<span class="kw">True</span>)
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    cli.<span class="fn">run_app</span>(<span class="type">WorkerOptions</span>(entrypoint_fnc=entrypoint))</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">LiveKit SFU &mdash; why it matters</div>
+        <p>A Selective Forwarding Unit receives each participant&rsquo;s audio track and selectively forwards it to others. For a voice bot, this means the agent never receives the <em>mixed</em> room audio &mdash; it receives only the speaking participant&rsquo;s raw track, so echo-cancellation and cross-talk are handled server-side rather than in your Python process. This is a significant operational advantage over raw WebSocket transport.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>OpenAI Realtime API &mdash; Speech-to-Speech Architecture</h2>
+    <p>The <strong>OpenAI Realtime API</strong> (GA November 2024) exposes a persistent WebSocket session that accepts raw audio input and returns audio output, eliminating the separate ASR and TTS hops. The session maintains a server-side conversation context; the client pushes audio frames and receives audio response frames plus text transcripts.</p>
+
+    <h3>Session object &mdash; key fields</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Field</th><th>Values / default</th><th>Effect</th></tr></thead>
+            <tbody>
+                <tr><td><code>modalities</code></td><td><code>["text","audio"]</code></td><td>Enable audio output; text-only is cheaper</td></tr>
+                <tr><td><code>model</code></td><td><code>gpt-4o-realtime-preview-2024-12-17</code></td><td>The only supported realtime model as of Q1 2026</td></tr>
+                <tr><td><code>voice</code></td><td><code>alloy</code> / <code>echo</code> / <code>fable</code> / <code>onyx</code> / <code>nova</code> / <code>shimmer</code></td><td>Built-in TTS voice; no external TTS hop needed</td></tr>
+                <tr><td><code>input_audio_format</code></td><td><code>pcm16</code> / <code>g711_ulaw</code> / <code>g711_alaw</code></td><td><code>g711_ulaw</code> for Twilio PSTN (8 kHz, 8-bit mu-law)</td></tr>
+                <tr><td><code>turn_detection.type</code></td><td><code>server_vad</code> / <code>none</code></td><td>Set <code>none</code> for manual turn control; use <code>server_vad</code> for push-to-talk-free UX</td></tr>
+                <tr><td><code>turn_detection.silence_duration_ms</code></td><td>200&ndash;2000 ms, default 800</td><td>Time of silence before EoU is declared</td></tr>
+                <tr><td><code>input_audio_transcription.model</code></td><td><code>whisper-1</code></td><td>Async transcript of user audio (for logging)</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Event flow</h3>
+    <div class="diagram-flow">
+        <div class="diagram-box dim">client sends<br><code>input_audio_buffer.append</code></div>
+        <span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box">server VAD<br>detects EoU</div>
+        <span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box accent"><code>response.created</code><br><code>response.audio.delta</code></div>
+        <span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box dim">client plays<br>audio chunks</div>
+        <span class="diagram-arrow">&rarr;</span>
+        <div class="diagram-box"><code>response.audio.done</code><br><code>response.done</code></div>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Interruption handling</div>
+        <p>If the user speaks while the model is responding, the client sends <code>response.cancel</code> followed by <code>input_audio_buffer.clear</code>. The server immediately truncates the in-progress response. The client must also truncate its local playout buffer to the last committed audio chunk reported by <code>response.audio_transcript.delta</code>. Failing to synchronise playout truncation causes the bot to &ldquo;echo&rdquo; audio that was cut off server-side.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>gpt-4o Realtime &mdash; Single Model, No STT/TTS Hop</h2>
+    <p>Unlike the classic pipeline where Whisper &rarr; GPT-4o &rarr; TTS-1 runs sequentially, the <strong>gpt-4o Realtime</strong> model processes audio input and generates audio output in a single autoregressive pass. The audio tokens are interleaved with text tokens in the same sequence, so the model can &ldquo;hear&rdquo; prosody cues (emphasis, hesitation) that are lost when you transcribe first.</p>
+
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Classic pipeline latency breakdown</h4>
+            <ul>
+                <li>ASR (Deepgram Nova-3): ~180 ms</li>
+                <li>LLM TTFT (gpt-4o): ~320 ms</li>
+                <li>TTS first-chunk (Cartesia Sonic): ~90 ms</li>
+                <li><strong>Total: ~590 ms</strong> &mdash; under budget, but three round trips</li>
+            </ul>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>gpt-4o Realtime latency breakdown</h4>
+            <ul>
+                <li>No ASR hop: 0 ms saved</li>
+                <li>Audio &rarr; audio TTFT: ~300&ndash;400 ms</li>
+                <li>No TTS hop: 0 ms saved (audio output starts with first token)</li>
+                <li><strong>Total: ~350&ndash;400 ms</strong> &mdash; 40 % faster than classic pipeline</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>Pricing (as of Q1 2026)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Resource</th><th>Price</th><th>Comparison</th></tr></thead>
+            <tbody>
+                <tr><td>Audio input</td><td>$100 / 1M tokens (&asymp; $0.006 / minute of speech)</td><td>~40&times; more than text input (gpt-4o: $2.50 / 1M)</td></tr>
+                <tr><td>Audio output</td><td>$200 / 1M tokens (&asymp; $0.024 / minute of speech)</td><td>~26&times; more than text output (gpt-4o: $10 / 1M)</td></tr>
+                <tr><td>Text input/output (cached)</td><td>Standard gpt-4o rates apply</td><td>System prompt caching works normally</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">When to choose Realtime API vs. classic pipeline</div>
+        <p><strong>Choose Realtime API</strong> when latency is critical and budget allows, or when you need the model to interpret prosodic cues (e.g. detecting sarcasm, urgency, or emotion from voice). <strong>Choose classic pipeline</strong> when you need to swap ASR/TTS providers independently (e.g. domain-specific ASR, custom voice clone), when cost-per-minute matters at scale, or when the LLM in your pipeline is not gpt-4o-realtime-preview.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>Gemini Live, Claude Voice</h2>
+    <p>Google and Anthropic have both entered the native audio space, each with a different architecture and API surface.</p>
+
+    <h3>Gemini Live &mdash; Google AI Studio / Vertex AI</h3>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Architecture</h4>
+            <p>Gemini 2.0 Flash and Gemini 2.5 Pro support native audio input/output via the <strong>Google Gen AI Live API</strong> (Vertex AI <code>bidiGenerateContent</code> gRPC / WebSocket). Like gpt-4o Realtime, audio tokens are processed in a single model pass. Voices: Aoede, Charon, Fenrir, Kore, Puck (all English, as of Q1 2026). Multilingual audio generation is in preview for Gemini 2.5.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Session config (key fields)</h4>
+            <ul>
+                <li><code>model</code>: <code>models/gemini-2.0-flash-live-001</code></li>
+                <li><code>response_modalities</code>: <code>["AUDIO"]</code> or <code>["TEXT","AUDIO"]</code></li>
+                <li><code>speech_config.voice_config.prebuilt_voice_config.voice_name</code>: e.g. <code>"Puck"</code></li>
+                <li><code>realtime_input_config.automatic_activity_detection</code>: enable server-side VAD</li>
+                <li>Native tool use via <code>tools</code> array &mdash; same format as standard Gemini API</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>Claude Voice &mdash; current state</h3>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>As of April 2026</h4>
+            <p>Anthropic has not released a <em>native</em> audio-in/audio-out API for Claude. Claude models process text. Voice deployments using Claude use the classic pipeline pattern: ASR (Deepgram / Whisper) &rarr; Claude text API &rarr; TTS (Cartesia / ElevenLabs). Pipecat and LiveKit both ship first-class Claude adapters for this pattern via <code>AnthropicLLMService</code> / <code>livekit.plugins.anthropic</code>.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Classic pipeline with Claude Haiku</h4>
+            <ul>
+                <li>Claude 3 Haiku TTFT: ~280 ms median</li>
+                <li>Claude 3.5 Haiku TTFT: ~240 ms median</li>
+                <li>System prompt caching active after first turn (60 % cost reduction on long prompts)</li>
+                <li>Tool use supported via standard API &mdash; function-calling frames work natively in Pipecat&rsquo;s <code>AnthropicLLMContext</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Multimodal audio &mdash; the trend</div>
+        <p>All three frontier providers are converging on native audio models that eliminate the ASR/TTS hop. The latency advantage is 30&ndash;50 % over a classic pipeline; the quality advantage is prosody-awareness. Expect Claude and Gemini to reach feature parity with the OpenAI Realtime API within 2026, based on current public roadmap signals.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>Telephony Bridges (Twilio, SIP)</h2>
+    <p>A large fraction of real-world voice bot deployments run over the <strong>PSTN</strong> (public switched telephone network) via carriers like <strong>Twilio</strong>, <strong>Vonage</strong>, or <strong>Bandwidth</strong>. These carriers bridge a telephone call to a WebSocket or SIP leg that your agent infrastructure handles. The audio encoding is different: PSTN uses 8 kHz, 8-bit &mu;-law (G.711 ulaw) rather than the 16 kHz PCM that most ASR models prefer.</p>
+
+    <h3>Twilio &rarr; Pipecat architecture</h3>
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 700 220" width="700" height="220" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <marker id="arr7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#76B900"/>
+                </marker>
+            </defs>
+            <style>
+                .t7 { fill: #161b22; stroke: #30363d; }
+                .t7a { fill: rgba(118,185,0,0.08); stroke: #76B900; }
+                .tl { fill: #e6edf3; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; }
+                .ts { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-anchor: middle; }
+                .ta { stroke: #76B900; stroke-width: 1.5; fill: none; marker-end: url(#arr7); }
+            </style>
+            <rect x="10"  y="80"  width="110" height="60" rx="6" class="t7"/>
+            <text x="65"  y="107" class="tl">PSTN caller</text>
+            <text x="65"  y="124" class="ts">G.711 ulaw</text>
+
+            <rect x="160" y="70"  width="130" height="80" rx="6" class="t7"/>
+            <text x="225" y="103" class="tl">Twilio</text>
+            <text x="225" y="120" class="ts">TwiML &lt;Stream&gt;</text>
+            <text x="225" y="136" class="ts">WebSocket to app</text>
+
+            <rect x="340" y="70"  width="160" height="80" rx="6" class="t7a"/>
+            <text x="420" y="103" class="tl">Pipecat</text>
+            <text x="420" y="120" class="ts">TwilioTransport</text>
+            <text x="420" y="136" class="ts">ulaw&rarr;PCM16 resample</text>
+
+            <rect x="550" y="80"  width="140" height="60" rx="6" class="t7"/>
+            <text x="620" y="107" class="tl">ASR / LLM / TTS</text>
+            <text x="620" y="124" class="ts">standard pipeline</text>
+
+            <path d="M 120 110 L 158 110" class="ta"/>
+            <path d="M 290 110 L 338 110" class="ta"/>
+            <path d="M 500 110 L 548 110" class="ta"/>
+
+            <text x="350" y="195" style="fill:#8b949e;font-family:'JetBrains Mono',monospace;font-size:11px;text-anchor:middle;">TwiML: &lt;Stream url="wss://yourapp/twilio-ws" track="inbound_track"/&gt;</text>
+        </svg>
+    </div>
+
+    <h3>Key integration points</h3>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>TwiML &lt;Stream&gt; configuration</h4>
+            <p>Twilio sends 20 ms audio packets (&mu;-law 8 kHz, 8-bit) as base64-encoded WebSocket messages of type <code>media</code>. The <code>TwilioTransport</code> in Pipecat and the <code>TwilioTranscriptionAgent</code> in LiveKit both decode and resample to 16 kHz PCM before feeding the ASR processor. Configure the TwiML verb: <code>&lt;Stream url="wss://..." track="inbound_track" /&gt;</code>.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>OpenAI Realtime + Twilio</h4>
+            <p>The OpenAI Realtime API accepts <code>g711_ulaw</code> directly as <code>input_audio_format</code>, removing the resample step. Set <code>output_audio_format</code> to <code>g711_ulaw</code> as well; the Twilio media stream sends it directly back to the PSTN caller. This is the simplest possible Twilio + GPT architecture: phone &rarr; Twilio WebSocket &rarr; OpenAI Realtime WebSocket &rarr; reverse.</p>
+        </div>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">SIP trunks vs. Twilio programmable voice</div>
+        <p>For high-volume enterprise deployments, a raw <strong>SIP trunk</strong> (RFC 3261) to a Kamailio or Asterisk gateway reduces per-minute carrier cost by 60&ndash;80 % compared to Twilio Programmable Voice. LiveKit ships a <strong>SIP participant</strong> service that bridges PSTN calls via SIP INVITE into a LiveKit room. Twilio is developer-friendly; SIP direct is cost-optimal at &gt;100 K minutes/month.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>Picking a Stack</h2>
+    <p>The decision tree below covers the most common real-world scenarios. Starting point: <em>is your transport WebRTC, PSTN, or custom?</em></p>
+
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel accent-border">
+            <h4>Browser / app &mdash; WebRTC</h4>
+            <p><strong>LiveKit Agents</strong> is the natural fit: LiveKit provides room management, TURN/STUN, SFU, and recording out of the box. Use <code>VoicePipelineAgent</code> with your choice of STT/LLM/TTS plugins. Alternatives: Pipecat with <code>DailyTransport</code> (Daily is built on WebRTC) or <code>SmallWebRTCTransport</code> for a dependency-light path.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Phone (PSTN / Twilio)</h4>
+            <p><strong>Pipecat + TwilioTransport</strong> or <strong>LiveKit SIP participant</strong>. If lowest latency is paramount, wire Twilio WebSocket directly to the <strong>OpenAI Realtime API</strong> with g711_ulaw on both ends &mdash; removes the Python orchestration layer entirely. Use Pipecat when you need custom tool-use logic or a non-OpenAI LLM.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Server-to-server / batch</h4>
+            <p>Classic HTTP pipeline: POST audio &rarr; Deepgram transcription REST &rarr; LLM chat completion &rarr; TTS REST &rarr; return audio file. No framework needed. Use <strong>Pipecat</strong> only if you need conversational state management across multiple turns.</p>
+        </div>
+    </div>
+
+    <h3>Framework feature matrix</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Feature</th><th>Pipecat</th><th>LiveKit Agents</th><th>OpenAI Realtime SDK</th></tr></thead>
+            <tbody>
+                <tr><td>Transport-agnostic</td><td>Yes (Daily, Twilio, SmallWebRTC, custom)</td><td>No (LiveKit SFU required)</td><td>No (WebSocket only)</td></tr>
+                <tr><td>Built-in VAD</td><td>Silero, WebRTC VAD</td><td>Silero</td><td>Server VAD (model-side)</td></tr>
+                <tr><td>Multi-provider ASR/TTS</td><td>60+ adapters</td><td>15+ plugins</td><td>Fixed (Whisper-1 / built-in TTS)</td></tr>
+                <tr><td>SIP / PSTN native</td><td>Via Twilio, Vonage adapters</td><td>Native SIP participant</td><td>Via Twilio g711_ulaw bridge</td></tr>
+                <tr><td>Function calling</td><td>Via LLM context processors</td><td>Via plugin hooks</td><td>Server-side tools (JSON schema)</td></tr>
+                <tr><td>Language</td><td>Python</td><td>Python</td><td>Python / Node.js (official SDKs)</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="slide" id="slide-09">
+    <div class="slide-number">09</div>
+    <h2>What to Take Away</h2>
+    <ul>
+        <li><strong>A real-time framework is not optional</strong> for production voice. Pipecat and LiveKit Agents both solve the same core problems (transport, VAD, interruption, plugin model) with different transport philosophies. Pipecat is more portable; LiveKit is deeper infrastructure.</li>
+        <li><strong>Pipecat pipeline model</strong>: typed frames flow through a chain of asyncio processors. Each processor is independently swappable. The <code>Pipeline([transport.input(), stt, ctx, llm, tts, transport.output()])</code> pattern is the foundation of most deployments.</li>
+        <li><strong>LiveKit Agents</strong>: runs inside a WebRTC room. The SFU hands your agent clean per-participant audio tracks, eliminating echo-cancellation complexity.</li>
+        <li><strong>OpenAI Realtime API</strong> removes ASR and TTS hops entirely. First-audio latency ~350&ndash;400 ms &mdash; 40 % faster than a classic pipeline, at 26&ndash;40&times; the per-token cost of text.</li>
+        <li><strong>gpt-4o Realtime</strong> can hear prosody; classic pipeline cannot. For empathetic or emotionally-aware bots, this is the key differentiator.</li>
+        <li><strong>Twilio + PSTN</strong>: G.711 ulaw at 8 kHz. Resample to 16 kHz for Whisper/Deepgram, or use OpenAI Realtime with native ulaw passthrough.</li>
+    </ul>
+
+    <div class="callout">
+        <div class="callout-label">Where to next</div>
+        <p>Deck 03 focuses on latency measurement and turn-taking mechanics: the 800 ms target in detail, where each millisecond goes, VAD sensitivity tuning, semantic EoU detection, filler words as a latency masking strategy, and the diagnostic metrics every production voice bot should emit.</p>
+    </div>
+</section>
+
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Voice_RealTime">Voice &amp; Real-Time Agents Series</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Voice_RealTime">Back to Series Index</a></p>
+</footer>
+<script>
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+</body>
+</html>
